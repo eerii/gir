@@ -36,9 +36,17 @@ fn generate_build_script(w: &mut dyn Write, env: &Env, split_build_rs: bool) -> 
         general::start_comments(w, &env.config)?;
         writeln!(w)?;
     }
+
+    let scripts = find_custom_build_scripts(env).unwrap_or_default();
+    for script in &scripts {
+        writeln!(w, "mod {};", script)?;
+    }
+    if !scripts.is_empty() {
+        writeln!(w)?;
+    }
+
     writeln!(
         w,
-        "{}",
         r#"#[cfg(not(docsrs))]
 use std::process;"#
     )?;
@@ -61,9 +69,47 @@ fn main() {
         println!("cargo:warning={s}");
         process::exit(1);
     }
-}
-"#
+
+    "#
+    )?;
+
+    for script in &scripts {
+        writeln!(w, "{}::main();", script)?;
+    }
+
+    write!(
+        w,
+        "
+}}
+"
     )
+}
+
+fn find_custom_build_scripts(env: &Env) -> Result<Vec<String>> {
+    let mut vec = Vec::<String>::new();
+    for entry in std::fs::read_dir(&env.config.auto_path.parent().unwrap())? {
+        let path = entry?.path();
+        let Some(ext) = path.extension() else {
+            continue;
+        };
+        if ext != "rs" {
+            continue;
+        }
+        let file_stem = path.file_stem().expect("No file name");
+        let file_stem = file_stem
+            .to_str()
+            .expect("Can't convert file name to string")
+            .to_owned();
+
+        if !file_stem.starts_with("build_") {
+            continue;
+        }
+
+        vec.push(file_stem);
+    }
+    vec.sort();
+
+    Ok(vec)
 }
 
 fn generate_build_version(w: &mut dyn Write, env: &Env) -> Result<()> {
