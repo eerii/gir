@@ -87,7 +87,7 @@ fn main() {
 
 fn find_custom_build_scripts(env: &Env) -> Result<Vec<String>> {
     let mut vec = Vec::<String>::new();
-    for entry in std::fs::read_dir(&env.config.auto_path.parent().unwrap())? {
+    for entry in std::fs::read_dir(env.config.auto_path.parent().unwrap())? {
         let path = entry?.path();
         let Some(ext) = path.extension() else {
             continue;
